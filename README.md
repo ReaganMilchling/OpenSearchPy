@@ -1,11 +1,11 @@
 ## Quickstart for OpenSearch
 This repo is a collection of quickstarts to familiarize myself with OpenSearch. Run docker-compose first.
 
-Use OpenSearch Python API to insert Aesop Fables data. [Download here](https://www.gutenberg.org/ebooks/21) and save the html file to root.
+Use OpenSearch Python API to insert Aesop Fables and Brothers Grimm stories. Read code for download links.
 
 Bruno API Client repo added here as well.
 
-The following is from OpenSearch tutorials.
+The following is from OpenSearch tutorials:
 
 ### Ecommerce Index
 Taken from [OpenSearch Guides](https://docs.opensearch.org/latest/getting-started/ingest-data/)

@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: http://localhost:9200/fables/_search
+  url: http://localhost:9200/stories/_search
   body: json
   auth: inherit
 }
@@ -16,7 +16,8 @@ body:json {
       "term": {
         "content": "wolf"
       }
-    }
+    },
+    "stored_fields": ["series", "url", "title", "content"]
   }
 }
 

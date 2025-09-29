@@ -1,23 +1,60 @@
-import json
-import os
-
-import opensearchpy
+import html2text
 from bs4 import BeautifulSoup
 from opensearchpy import OpenSearch, NotFoundError
 
-json_name = 'fables.json'
+fables_json = 'fables.json'
+grimm_json = 'grimm.json'
+
+stories_index = 'stories'
+stories_schema = {
+    "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 1
+    },
+    "mappings": {
+        "_source": {
+            "enabled": False
+        },
+        "dynamic": False,
+        "properties": {
+            "url": {
+                "type": "text",
+                "store": True,
+                "index": False
+            },
+            "author": {
+                "type": "text",
+                "store": True
+            },
+            "series": {
+                "type": "text",
+                "store": True
+            },
+            "title": {
+                "type": "text",
+                "store": True
+            },
+            "content": {
+                "type": "text",
+                "store": False
+            }
+        }
+    }
+}
+
 host = 'localhost'
 port = 9200
 
 # Create the client with SSL/TLS and hostname verification disabled.
 client = OpenSearch(
-    hosts = [{'host': host, 'port': port}],
-    http_compress = True, # enables gzip compression for request bodies
-    use_ssl = False,
-    verify_certs = False,
-    ssl_assert_hostname = False,
-    ssl_show_warn = False
+    hosts=[{'host': host, 'port': port}],
+    http_compress=True,  # enables gzip compression for request bodies
+    use_ssl=False,
+    verify_certs=False,
+    ssl_assert_hostname=False,
+    ssl_show_warn=False
 )
+
 
 def del_index(name):
     try:
@@ -25,7 +62,8 @@ def del_index(name):
     except NotFoundError:
         print('{} did not exist'.format(name))
 
-def create_index():
+
+def create_index_temp():
     del_index('movies')
     del_index('python-test-index')
     del_index('my-dsl-index')
@@ -82,46 +120,74 @@ def create_index():
     print('\nSearch results:')
     print(response)
 
-def fables():
-    try:
-        os.remove(json_name)
-    except OSError:
-        pass
 
-    html = open("pg21-images.html", "r")
+def index_stories(stories, author, series, url):
+    for story in stories:
+        story['author'] = author
+        story['series'] = series
+        story['url'] = url
+        client.index(index=stories_index, body=story)
+
+
+def gutenberg_parse(file_name):
+    html = open(file_name, "r")
     soup = BeautifulSoup(html, features="html.parser")
-    stories = []
+    documents = []
     for chapter in soup.find_all('div', attrs={'class': 'chapter'}):
-        title = chapter.find('h2').text
-        raw_text = chapter.find_all('p')
-        text = ''
-        for t in raw_text:
-            text += t.text.lstrip()
+        title_tag = chapter.find('h2')
+        if title_tag is None:
+            title_tag = chapter.find('h3')
+            title = title_tag.text
+            chapter.h3.decompose()
+        else:
+            title = title_tag.text
+            chapter.h2.decompose()
+
+        soup_text = chapter.get_text()
+        text = html2text.html2text(str(soup_text))
+
         if text != '':
-            stories.append({'title': title, 'content': text})
-    print('done parsing')
-    with open(json_name, 'w', encoding='utf-8') as f:
-        json.dump(stories, f, ensure_ascii=False, indent=4)
-    print('done writing')
+            documents.append({'title': title.strip(), 'content': text})
+    return documents
 
-def index_fables():
-    index_name = 'fables'
-    del_index(index_name)
 
-    text = json.load(open(json_name, "r"))
-    for i, fable in enumerate(text):
-        index = {}
-        index['_index'] = index_name
-        index['_id'] = i
-        response = client.index(
-            index = index_name,
-            body = fable,
-            id = i,
-            refresh = True
-        )
+def aesop():
+    url = 'https://www.gutenberg.org/cache/epub/21/pg21-images.html'
+    author = 'Aesop'
+    series = "Aesop's Fables"
+    fables = gutenberg_parse("data/pg21-images.html")
+    print("{0}: {1}".format(series, len(fables)))
+    index_stories(fables, author, series, url)
+
+
+def brothers_grimm():
+    gutenberg = [
+        {"url": "http://www.gutenberg.org/files/19068/19068-h/19068-h.htm", "name": "HOUSEHOLD STORIES BY THE BROTHERS GRIMM"},
+        {"url": "http://www.gutenberg.org/files/11027/11027-h/11027-h.htm", "name": "GRIMM'S FAIRY STORIES"},
+        {"url": "http://www.gutenberg.org/files/37381/37381-h/37381-h.htm", "name": "SNOWDROP AND OTHER TALES"},
+    ]
+    gutenberg_easy = [
+        {"url": "http://www.gutenberg.org/files/2591/2591-h/2591-h.htm", "name": "THE BROTHERS GRIMM FAIRY TALES",
+         "file": "data/grimm/Grimms’ Fairy Tales, by Jacob Grimm and Wilhelm Grimm.html"},
+        {"url": "http://www.gutenberg.org/files/52521/52521-h/52521-h.htm", "name": "GRIMM'S FAIRY TALES",
+         "file": "data/grimm/Grimm’s Fairy Tales, by Frances Jenkins Olcott (Editor).html"},
+        {"url": "http://www.gutenberg.org/files/5314/5314-h/5314-h.htm", "name": "HOUSEHOLD TALES BY BROTHERS GRIMM",
+         "file": "data/grimm/Household Tales by Brothers Grimm, by Jacob Grimm and Wilhelm Grimm.html"}
+    ]
+    author = 'Jacob Grimm and Wilhelm Grimm'
+    for g in gutenberg_easy:
+        stories = gutenberg_parse(g['file'])
+        print("{0}: {1}".format(g['name'], len(stories)))
+        index_stories(stories, author, g['name'], g['url'])
+
+
+def init_stories():
+    del_index(stories_index)
+    response = client.indices.create(index=stories_index, body=stories_schema)
+    print(response)
 
 
 if __name__ == '__main__':
-    #create_index()
-    #fables()
-    index_fables()
+    init_stories()
+    aesop()
+    brothers_grimm()
