@@ -1,0 +1,3 @@
+opensearch-py
+opensearch-dsl
+beautifulsoup4

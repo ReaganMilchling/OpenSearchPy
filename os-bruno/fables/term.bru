@@ -1,0 +1,25 @@
+meta {
+  name: term
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:9200/fables/_search
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "query": {
+      "term": {
+        "content": "wolf"
+      }
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+}

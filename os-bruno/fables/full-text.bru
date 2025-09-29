@@ -1,0 +1,25 @@
+meta {
+  name: full-text
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:9200/fables/_search
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "query": {
+      "match": {
+        "content": "wolf fighting"
+      }
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+}
