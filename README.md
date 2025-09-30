@@ -5,7 +5,19 @@ Use OpenSearch Python API to insert Aesop Fables and Brothers Grimm stories. Rea
 
 Bruno API Client repo added here as well.
 
-The following is from OpenSearch tutorials:
+
+## RAG
+Follow HuggingFace's tutorial [make your own RAG](https://huggingface.co/blog/ngxson/make-your-own-rag).
+```
+install ollama
+```
+Download cat facts:
+```
+https://huggingface.co/ngxson/demo_simple_rag_py/blob/main/cat-facts.txt
+```
+
+
+## The following is from OpenSearch tutorials:
 
 ### Ecommerce Index
 Taken from [OpenSearch Guides](https://docs.opensearch.org/latest/getting-started/ingest-data/)

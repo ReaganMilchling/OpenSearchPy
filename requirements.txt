@@ -3,3 +3,5 @@ opensearch-dsl
 
 beautifulsoup4
 html2text
+
+ollama

@@ -6,3 +6,4 @@ data
 
 ## pycharm
 .idea
+__pycache__
