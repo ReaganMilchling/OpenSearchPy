@@ -42,6 +42,74 @@ stories_schema = {
     }
 }
 
+stories_vector_index = 'stories_v'
+stories_pipeline = {
+    "description": "Stories NLP ingest pipeline",
+    "processors": [
+        {
+            "text_chunking": {
+                "algorithm": {
+                    "fixed_token_length": {
+                        "token_limit": 10,
+                        "overlap_rate": 0.2,
+                        "tokenizer": "standard"
+                    }
+                },
+                "field_map": {
+                    "content": "passage_chunk"
+                }
+            }
+        },
+        {
+            "text_embedding": {
+                "model_id": "{{model_id}}",
+                "field_map": {
+                    "passage_chunk": "passage_chunk_embedding"
+                }
+            }
+        }
+    ]
+}
+stories_vector_schema = {
+    "settings": {
+        "index.knn": True
+    },
+    "mappings": {
+        "_source": {
+            "enabled": False
+        },
+        "dynamic": False,
+        "properties": {
+            "url": {
+                "type": "text",
+                "store": True,
+                "index": False
+            },
+            "author": {
+                "type": "text",
+                "store": True
+            },
+            "series": {
+                "type": "text",
+                "store": True
+            },
+            "title": {
+                "type": "text",
+                "store": True
+            },
+            "passage_chunk_embedding": {
+                "type": "nested",
+                "properties": {
+                    "knn": {
+                        "type": "knn_vector",
+                        "dimension": 768
+                    }
+                }
+            }
+        }
+    }
+}
+
 host = 'localhost'
 port = 9200
 
@@ -121,12 +189,15 @@ def create_index_temp():
     print(response)
 
 
-def index_stories(stories, author, series, url):
-    for story in stories:
+def index_stories(stories, author, series, url, is_vector):
+    for i, story in enumerate(stories):
         story['author'] = author
         story['series'] = series
         story['url'] = url
-        client.index(index=stories_index, body=story)
+        if is_vector:
+            client.http.put('/' + stories_vector_index + '/_doc/' + str(i) + '?pipeline=stories_pipeline', body=story)
+        else:
+            client.index(index=stories_index, body=story)
 
 
 def gutenberg_parse(file_name):
@@ -151,16 +222,16 @@ def gutenberg_parse(file_name):
     return documents
 
 
-def aesop():
+def aesop(is_vector=False):
     url = 'https://www.gutenberg.org/cache/epub/21/pg21-images.html'
     author = 'Aesop'
     series = "Aesop's Fables"
     fables = gutenberg_parse("data/pg21-images.html")
     print("{0}: {1}".format(series, len(fables)))
-    index_stories(fables, author, series, url)
+    index_stories(fables, author, series, url, is_vector)
 
 
-def brothers_grimm():
+def brothers_grimm(is_vector=False):
     gutenberg = [
         {"url": "http://www.gutenberg.org/files/19068/19068-h/19068-h.htm", "name": "HOUSEHOLD STORIES BY THE BROTHERS GRIMM"},
         {"url": "http://www.gutenberg.org/files/11027/11027-h/11027-h.htm", "name": "GRIMM'S FAIRY STORIES"},
@@ -178,16 +249,22 @@ def brothers_grimm():
     for g in gutenberg_easy:
         stories = gutenberg_parse(g['file'])
         print("{0}: {1}".format(g['name'], len(stories)))
-        index_stories(stories, author, g['name'], g['url'])
+        index_stories(stories, author, g['name'], g['url'], is_vector)
 
 
-def init_stories():
-    del_index(stories_index)
-    response = client.indices.create(index=stories_index, body=stories_schema)
+def re_init_schema(name, body):
+    del_index(name)
+    response = client.indices.create(index=name, body=body)
     print(response)
 
 
 def os_idx():
-    init_stories()
+    re_init_schema(stories_index, stories_schema)
     aesop()
     brothers_grimm()
+
+
+def vector():
+    re_init_schema(stories_vector_index, stories_vector_schema)
+    aesop(True)
+    brothers_grimm(True)

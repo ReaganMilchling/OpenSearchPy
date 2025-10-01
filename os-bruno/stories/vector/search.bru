@@ -1,0 +1,35 @@
+meta {
+  name: search
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:9200/stories_v/_search
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "query": {
+      "nested": {
+        "score_mode": "max",
+        "path": "passage_chunk_embedding",
+        "query": {
+          "neural": {
+            "passage_chunk_embedding.knn": {
+              "query_text": "wolf fighting",
+              "model_id": "{{model_id}}"
+            }
+          }
+        }
+      }
+    },
+    "stored_fields": ["series", "url", "title", "author"]
+  }
+}
+
+settings {
+  encodeUrl: true
+}

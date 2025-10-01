@@ -1,0 +1,15 @@
+meta {
+  name: stats copy
+  type: http
+  seq: 3
+}
+
+get {
+  url: http://localhost:9200/stories_v/_stats
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

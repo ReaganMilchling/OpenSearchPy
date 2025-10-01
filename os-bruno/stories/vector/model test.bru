@@ -1,0 +1,27 @@
+meta {
+  name: model test
+  type: http
+  seq: 8
+}
+
+post {
+  url: http://localhost:9200/_plugins/_ml/_predict/text_embedding/{{model_id}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "text_docs": ["The Dogs and the Hides: SOME DOGS famished with hunger saw a number of cowhides steeping in a river. Not being able to reach them, they agreed to drink up the river, but it happened that they burst themselves with drinking long before they reached the hides. Attempt not impossibilities. "],
+    "return_number": true,
+    "target_response": ["sentence_embedding"]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("task_id", res.body.task_id);
+}
+
+settings {
+  encodeUrl: true
+}
