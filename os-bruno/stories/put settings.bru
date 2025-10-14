@@ -1,0 +1,25 @@
+meta {
+  name: put settings
+  type: http
+  seq: 8
+}
+
+put {
+  url: http://localhost:9200/_cluster/settings
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "persistent": {
+      "plugins.ml_commons.only_run_on_ml_node": "false",
+      "plugins.ml_commons.model_access_control_enabled": "true",
+      "plugins.ml_commons.native_memory_threshold": "99"
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+}

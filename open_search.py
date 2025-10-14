@@ -72,7 +72,8 @@ stories_pipeline = {
 }
 stories_vector_schema = {
     "settings": {
-        "index.knn": True
+        "index.knn": True,
+        "default_pipeline": "stories_pipeline"
     },
     "mappings": {
         "_source": {
@@ -109,6 +110,23 @@ stories_vector_schema = {
         }
     }
 }
+query = {
+  "query": {
+    "nested": {
+      "score_mode": "max",
+      "path": "passage_chunk_embedding",
+      "query": {
+        "neural": {
+          "passage_chunk_embedding.knn": {
+            "query_text": "{{query}}",
+            "model_id": "{{model_id}}"
+          }
+        }
+      }
+    }
+  },
+  "stored_fields": ["series", "url", "title", "author"]
+}
 
 host = 'localhost'
 port = 9200
@@ -131,71 +149,14 @@ def del_index(name):
         print('{} did not exist'.format(name))
 
 
-def create_index_temp():
-    del_index('movies')
-    del_index('python-test-index')
-    del_index('my-dsl-index')
-
-    # Create an index with non-default settings.
-    index_name = 'python-test-index'
-    index_body = {
-        'settings': {
-            'index': {
-                'number_of_shards': 4
-            }
-        }
-    }
-    response = client.indices.create(index=index_name, body=index_body)
-    print('\nCreating index:')
-    print(response)
-
-    # Add a document to the index.
-    document = {
-        'title': 'Moneyball',
-        'director': 'Bennett Miller',
-        'year': '2011'
-    }
-    id = '1'
-    response = client.index(
-        index=index_name,
-        body=document,
-        id=id,
-        refresh=True
-    )
-
-    print('\nAdding document:')
-    print(response)
-
-    # Perform bulk operations
-    movies = '{ "index" : { "_index" : "movies", "_id" : "2" } } \n { "title" : "Interstellar", "director" : "Christopher Nolan", "year" : "2014"} \n { "create" : { "_index" : "movies", "_id" : "3" } } \n { "title" : "Star Trek Beyond", "director" : "Justin Lin", "year" : "2015"} \n { "update" : {"_id" : "3", "_index" : "movies" } } \n { "doc" : {"year" : "2016"} }'
-    client.bulk(body=movies)
-    # Search for the document.
-    q = 'miller'
-    query = {
-        'size': 5,
-        'query': {
-            'multi_match': {
-                'query': q,
-                'fields': ['title^2', 'director']
-            }
-        }
-    }
-
-    response = client.search(
-        body=query,
-        index=index_name
-    )
-    print('\nSearch results:')
-    print(response)
-
-
 def index_stories(stories, author, series, url, is_vector):
     for i, story in enumerate(stories):
         story['author'] = author
         story['series'] = series
         story['url'] = url
         if is_vector:
-            client.http.put('/' + stories_vector_index + '/_doc/' + str(i) + '?pipeline=stories_pipeline', body=story)
+            url = '/' + stories_vector_index + '/_doc/' + str(i) + '?pipeline=stories_pipeline'
+            client.http.put(url, body=story)
         else:
             client.index(index=stories_index, body=story)
 
@@ -268,3 +229,24 @@ def vector():
     re_init_schema(stories_vector_index, stories_vector_schema)
     aesop(True)
     brothers_grimm(True)
+
+
+def query_search(model, text):
+    url = '/' + stories_vector_index + '/_search/'
+    body = query
+    body['query']['nested']['query']['neural']['passage_chunk_embedding.knn']['query_text'] = text
+    body['query']['nested']['query']['neural']['passage_chunk_embedding.knn']['model_id'] = model
+    response = client.http.get(url, body=body)
+    items = response['hits']['hits']
+    for i, item in enumerate(items):
+        fields = item['fields']
+        print("{0}: {1} from {2} by {3}".format(i+1, fields['title'][0], fields['series'][0], fields['author'][0]))
+
+def search():
+    model = input('Input the model to use: ')
+    print('Type q to quit...')
+    while True:
+        input_query = input('\nEnter a query: ')
+        if input_query == 'q':
+            break
+        query_search(model, input_query)

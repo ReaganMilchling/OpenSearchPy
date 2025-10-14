@@ -1,0 +1,15 @@
+meta {
+  name: breaker
+  type: http
+  seq: 9
+}
+
+get {
+  url: http://localhost:9200/_nodes/stats/breaker
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
